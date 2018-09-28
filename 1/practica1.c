@@ -25,6 +25,7 @@ y los vuelca a traza nueva (�correctamente?) con tiempo actual
 #define OK 0
 #define NET_INTERFACE "wlp2s0"
 #define MINUTES 30
+#define SNAPLEN 65535 //Following libpcap man page, this makes every package to be fully saved.
 #define ETH_FRAME_MAX 1514    // Tamano maximo trama ethernet
 
 pcap_t *descr=NULL,*descr2=NULL;
@@ -33,6 +34,8 @@ pcap_dumper_t *pdumper=NULL;
 void handle(int nsignal){
     printf("Control C pulsado\n");
     if(descr)
+        pcap_breakloop(descr);
+        return;
         pcap_close(descr);
     if(descr2)
         pcap_close(descr2);
@@ -44,9 +47,15 @@ void handle(int nsignal){
 void fa_nuevo_paquete(uint8_t *usuario, const struct pcap_pkthdr* cabecera, const uint8_t* paquete){
     int* num_paquete=(int *)usuario;
     (*num_paquete)++;
-    printf("Nuevo paquete capturado a las %s\n",ctime((const time_t*)&(cabecera->ts.tv_sec)));
+    printf("%d\n", *num_paquete);
+    struct pcap_pkthdr header;
+    header.ts.tv_sec = cabecera->ts.tv_sec + MINUTES*60;
+    header.ts.tv_usec = cabecera->ts.tv_usec;
+    header.caplen = cabecera->caplen;
+    header.len = cabecera->len;
+    printf("Nuevo paquete capturado a las %s\n",ctime((const time_t*)&(header.ts.tv_sec)));
     if(pdumper){
-        pcap_dump((uint8_t *)pdumper,cabecera,paquete);
+        pcap_dump((uint8_t *)pdumper,&header,paquete);
     }
 }
 
@@ -64,7 +73,7 @@ int main(int argc, char **argv)
 
     if(argc == 2){
         //Apertura de interface
-       if(!(descr = pcap_open_live(NET_INTERFACE,5,0,100, errbuf))){
+       if(!(descr = pcap_open_live(NET_INTERFACE,SNAPLEN,0,100, errbuf))){
             printf("Error: pcap_open_live(): %s, %s %d.\n",errbuf,__FILE__,__LINE__);
             exit(ERROR);
         }
@@ -76,7 +85,6 @@ int main(int argc, char **argv)
             exit(ERROR);
         }
         gettimeofday(&time,NULL);
-        time.tv_sec += MINUTES*60;
         sprintf(file_name,"captura.eth0.%lld.pcap",(long long)time.tv_sec);
         pdumper=pcap_dump_open(descr2,file_name);
         if(!pdumper){
