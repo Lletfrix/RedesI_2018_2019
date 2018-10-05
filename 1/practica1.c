@@ -21,20 +21,25 @@ y los vuelca a traza nueva (�correctamente?) con tiempo actual
 #include <linux/tcp.h>
 #include <signal.h>
 #include <time.h>
+#include <inttypes.h>
 #define ERROR 1
 #define OK 0
 #define NET_INTERFACE "wlp2s0"
 #define MINUTES 30
 #define SNAPLEN 65535 //Following libpcap man page, this makes every package to be fully saved.
 #define ETH_FRAME_MAX 65535    // Tamano maximo trama ethernet
+#define BYTE_COL_PRINT 16
 
 pcap_t *descr=NULL,*descr2=NULL;
 pcap_dumper_t *pdumper=NULL;
 int nbytes = 0;
 
 void print_pkt_hex(const uint32_t caplen, const uint8_t *pkt){
-    for (size_t i = 0; i < nbytes && i<caplen; i++) {
-        printf("%02X ", pkt[i]);
+    for (size_t i = 1; i <= nbytes && i<=caplen; i++) {
+        printf("%02"PRIx8" ", pkt[i]);
+        if(i%BYTE_COL_PRINT==0){
+            printf("\n");
+        }
     }
 }
 
