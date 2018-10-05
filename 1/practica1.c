@@ -26,35 +26,37 @@ y los vuelca a traza nueva (�correctamente?) con tiempo actual
 #define NET_INTERFACE "wlp2s0"
 #define MINUTES 30
 #define SNAPLEN 65535 //Following libpcap man page, this makes every package to be fully saved.
-#define ETH_FRAME_MAX 1514    // Tamano maximo trama ethernet
+#define ETH_FRAME_MAX 65535    // Tamano maximo trama ethernet
 
 pcap_t *descr=NULL,*descr2=NULL;
 pcap_dumper_t *pdumper=NULL;
+int nbytes = 0;
+
+void print_pkt_hex(const uint32_t caplen, const uint8_t *pkt){
+    for (size_t i = 0; i < nbytes && i<caplen; i++) {
+        printf("%02X ", pkt[i]);
+    }
+}
 
 void handle(int nsignal){
     printf("Control C pulsado\n");
     if(descr)
         pcap_breakloop(descr);
         return;
-        pcap_close(descr);
-    if(descr2)
-        pcap_close(descr2);
-    if(pdumper)
-        pcap_dump_close(pdumper);
-    exit(OK);
  }
 
 void fa_nuevo_paquete(uint8_t *usuario, const struct pcap_pkthdr* cabecera, const uint8_t* paquete){
     int* num_paquete=(int *)usuario;
     (*num_paquete)++;
-    printf("%d\n", *num_paquete);
     struct pcap_pkthdr header;
-    header.ts.tv_sec = cabecera->ts.tv_sec + MINUTES*60;
-    header.ts.tv_usec = cabecera->ts.tv_usec;
-    header.caplen = cabecera->caplen;
-    header.len = cabecera->len;
-    printf("Nuevo paquete capturado a las %s\n",ctime((const time_t*)&(header.ts.tv_sec)));
+    printf("Nuevo paquete capturado a las %s",ctime((const time_t*)&(cabecera->ts.tv_sec)));
+    print_pkt_hex(cabecera->caplen, paquete);
+    printf("\n\n");
     if(pdumper){
+        header.ts.tv_sec = cabecera->ts.tv_sec + MINUTES*60;
+        header.ts.tv_usec = cabecera->ts.tv_usec;
+        header.caplen = cabecera->caplen;
+        header.len = cabecera->len;
         pcap_dump((uint8_t *)pdumper,&header,paquete);
     }
 }
@@ -85,7 +87,7 @@ int main(int argc, char **argv)
             exit(ERROR);
         }
         gettimeofday(&time,NULL);
-        sprintf(file_name,"captura.eth0.%lld.pcap",(long long)time.tv_sec);
+        sprintf(file_name,"captura."NET_INTERFACE".%lld.pcap",(long long)time.tv_sec);
         pdumper=pcap_dump_open(descr2,file_name);
         if(!pdumper){
             printf("Error al abrir el dumper: %s, %s %d.\n",pcap_geterr(descr2),__FILE__,__LINE__);
@@ -107,6 +109,7 @@ int main(int argc, char **argv)
         printf("\tAnalyze the first NBYTES of given frame FFILENAME. With no FFILENAME, capture live packages from eth0.\n");
         exit(ERROR);
     }
+    nbytes = atoi(argv[1]); //TODO: Check this is a number.
 
     //Se pasa el contador como argumento, pero sera mas comodo y mucho mas habitual usar variables globales
     retorno = pcap_loop (descr,-1,fa_nuevo_paquete, (uint8_t*)&contador);
@@ -117,16 +120,23 @@ int main(int argc, char **argv)
         pcap_dump_close(pdumper);
         exit(ERROR);
     }
-    else if(retorno==-2){ //pcap_breakloop() no asegura la no llamada a la funcion de atencion para paquetes ya en el buffer
+    else if(retorno==-2 && contador <= 0){ //pcap_breakloop() no asegura la no llamada a la funcion de atencion para paquetes ya en el buffer
         printf("Llamada a %s %s %d.\n","pcap_breakloop()",__FILE__,__LINE__);
     }
     else if(retorno == 0){
         printf("No mas paquetes o limite superado %s %d.\n",__FILE__,__LINE__);
     }
+    printf("Numero de paquetes capturados: %d\n", contador);
 
-    pcap_dump_close(pdumper);
-    pcap_close(descr);
-    pcap_close(descr2);
+    if(pdumper){
+        pcap_dump_close(pdumper);
+    }
+    if(descr){
+        pcap_close(descr);
+    }
+    if(descr2){
+        pcap_close(descr2);
+    }
 
     return OK;
 }
