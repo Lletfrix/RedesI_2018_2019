@@ -5,7 +5,7 @@
 ################################################################################
 
 # banderas de compilacion (puede ser util cambiarlas)
-CC = gcc
+CC = gcc -std=gnu99
 #ifdef ENTREGA
 CFLAGS = -Wall -g -I .
 LDLIBS = -lm
