@@ -1,0 +1,13 @@
+Autores: Sergio Galán Martin y Rafael Sánchez Sánchez.
+
+Se han realizado dos funciones auxiliares que sirven para modularizar el código. Una se encarga de imprimir el paquete por pantalla en el formato requerido por el enunciado y la segunda se encarga de comprobar que el primer parámetro es un número entero.
+En la siguiente sección se obvia el criterio <<Fichero leeme.txt bien explicado: 5%>> ya que se refiere a este mismo archivo y sería una contestación recursiva pero a efectos prácticos supongamos que su estado es <<Realizado>>.
+
+Normativa de entrega cumplida en su totalidad: Realizado - Varias relecturas del enunciado
+Contar paquetes de una traza (independientemente del número de paquetes): Realizado - El número de paquetes que muestra Wireshark coincide con la salida por pantalla de nuestro programa.
+Contar paquetes de la interfaz de red: Realizado - El número de paquetes que muestra el archivo volcado tras abrirlo con Wireshark y nuestro programa coinciden con la salida de nuestro programa al capturarlo.
+Uso de un único "flujo" para traza e interfaz: Realizado - Una vez se ha abierto el descriptor el programa itera y termina por el mismo flujo.
+Almacenar correctamente el tráfico capturado en vivo una traza: Realizado - Se ha comprabado que todos los bytes de la traza capturada coincide con lo que indica Wireshark en un conjunto diverso de paquetes.
+Modificar fecha correctamente: Realizado - Al guardar el paquete se modifica el campo de segundos para que se sumen 60*30 (30 minutos)
+Imprimir los N primeros bytes de un paquete (pruebe para N>15) y validarlo con Wireshark (captura de pantalla): Realizado - Se imprimen correctamente los N primeros bytes.
+Ejercicios de captura de tráfico: Realizado -  Se adjunta el archivo practica1.pdf donde se encuentran las respuestas a cada uno.

@@ -1,10 +1,10 @@
 /***************************************************************************
-EjemploPcapP1.c
+practica1.c
 Muestra el tiempo de llegada de los primeros 50 paquetes a la interface eth0
 y los vuelca a traza nueva (�correctamente?) con tiempo actual
 
  Compila: gcc -Wall -o EjemploPcapP1 EjemploPcapP1.c -lpcap
- Autor: Jose Luis Garcia Dorado
+ Autor: Jose Luis Garcia Dorado - Rafael Sánchez & Sergio Galán
  2018 EPS-UAM
 ***************************************************************************/
 
@@ -22,6 +22,11 @@ y los vuelca a traza nueva (�correctamente?) con tiempo actual
 #include <signal.h>
 #include <time.h>
 #include <inttypes.h>
+#include <stdbool.h>
+#include <ctype.h>
+
+#include "practica1.h"
+
 #define ERROR 1
 #define OK 0
 #define NET_INTERFACE "wlp2s0"
@@ -33,38 +38,6 @@ y los vuelca a traza nueva (�correctamente?) con tiempo actual
 pcap_t *descr=NULL,*descr2=NULL;
 pcap_dumper_t *pdumper=NULL;
 int nbytes = 0;
-
-void print_pkt_hex(const uint32_t caplen, const uint8_t *pkt){
-    for (size_t i = 1; i <= nbytes && i<=caplen; i++) {
-        printf("%02"PRIx8" ", pkt[i]);
-        if(i%BYTE_COL_PRINT==0){
-            printf("\n");
-        }
-    }
-}
-
-void handle(int nsignal){
-    printf("Control C pulsado\n");
-    if(descr)
-        pcap_breakloop(descr);
-        return;
- }
-
-void fa_nuevo_paquete(uint8_t *usuario, const struct pcap_pkthdr* cabecera, const uint8_t* paquete){
-    int* num_paquete=(int *)usuario;
-    (*num_paquete)++;
-    struct pcap_pkthdr header;
-    printf("Nuevo paquete capturado a las %s",ctime((const time_t*)&(cabecera->ts.tv_sec)));
-    print_pkt_hex(cabecera->caplen, paquete);
-    printf("\n\n");
-    if(pdumper){
-        header.ts.tv_sec = cabecera->ts.tv_sec + MINUTES*60;
-        header.ts.tv_usec = cabecera->ts.tv_usec;
-        header.caplen = cabecera->caplen;
-        header.len = cabecera->len;
-        pcap_dump((uint8_t *)pdumper,&header,paquete);
-    }
-}
 
 int main(int argc, char **argv)
 {
@@ -79,6 +52,10 @@ int main(int argc, char **argv)
     }
 
     if(argc == 2){
+        if(!aredigits(argv[1])){
+            printf("Error: El argumento debe ser un número entero.\n");
+            exit(ERROR);
+        }
         //Apertura de interface
        if(!(descr = pcap_open_live(NET_INTERFACE,SNAPLEN,0,100, errbuf))){
             printf("Error: pcap_open_live(): %s, %s %d.\n",errbuf,__FILE__,__LINE__);
@@ -144,4 +121,46 @@ int main(int argc, char **argv)
     }
 
     return OK;
+}
+
+bool aredigits(char *s){
+    while(*s){
+        if(!isdigit(*s)){
+            return false;
+        }
+        s++;
+    }
+    return true;
+}
+
+void print_pkt_hex(const uint32_t caplen, const uint8_t *pkt){
+    for (size_t i = 1; i <= nbytes && i<=caplen; i++) {
+        printf("%02"PRIx8" ", pkt[i]);
+        if(i%BYTE_COL_PRINT==0){
+            printf("\n");
+        }
+    }
+}
+
+void handle(int nsignal){
+    printf("Control C pulsado\n");
+    if(descr)
+        pcap_breakloop(descr);
+        return;
+ }
+
+void fa_nuevo_paquete(uint8_t *usuario, const struct pcap_pkthdr* cabecera, const uint8_t* paquete){
+    int* num_paquete=(int *)usuario;
+    (*num_paquete)++;
+    struct pcap_pkthdr header;
+    printf("Nuevo paquete capturado a las %s",ctime((const time_t*)&(cabecera->ts.tv_sec)));
+    print_pkt_hex(cabecera->caplen, paquete);
+    printf("\n\n");
+    if(pdumper){
+        header.ts.tv_sec = cabecera->ts.tv_sec + MINUTES*60;
+        header.ts.tv_usec = cabecera->ts.tv_usec;
+        header.caplen = cabecera->caplen;
+        header.len = cabecera->len;
+        pcap_dump((uint8_t *)pdumper,&header,paquete);
+    }
 }
