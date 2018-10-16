@@ -29,7 +29,7 @@ y los vuelca a traza nueva (�correctamente?) con tiempo actual
 
 #define ERROR 1
 #define OK 0
-#define NET_INTERFACE "wlp2s0"
+#define NET_INTERFACE "eth0"
 #define MINUTES 30
 #define SNAPLEN 65535 //Following libpcap man page, this makes every package to be fully saved.
 #define ETH_FRAME_MAX 65535    // Tamano maximo trama ethernet
