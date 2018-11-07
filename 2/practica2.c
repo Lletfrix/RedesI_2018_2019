@@ -33,7 +33,7 @@
 #define ETH_FRAME_MIN 60     /* Tamanio minimo la trama ethernet (sin CRC) */
 #define ETH_DATA_MAX  (ETH_FRAME_MAX - ETH_HLEN) /* Tamano maximo y minimo de los datos de una trama ethernet*/
 #define ETH_DATA_MIN  (ETH_FRAME_MIN - ETH_HLEN)
-#define IP_ALEN 4            /* Tamanio de la direccion IP                    */
+#define IP_ADDR 4            /* Tamanio de la direccion IP                    */
 #define OK 0
 #define ERROR 1
 #define PACK_READ 1
@@ -49,7 +49,6 @@
 #define IP_TTLIVE 1
 #define IP_PROTOCOL 1
 #define IP_CHECK_SUM 2
-#define IP_ADDR 4
 #define L4_PORT 2
 #define TCP_SHAMT 9
 void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t *pack);
@@ -64,10 +63,12 @@ void handleSignal(int nsignal);
 
 pcap_t *descr = NULL;
 uint64_t contador = 0;
-uint8_t ipsrc_filter[IP_ALEN] = {NO_FILTER};
-uint8_t ipdst_filter[IP_ALEN] = {NO_FILTER};
+uint8_t ipsrc_filter[IP_ADDR] = {NO_FILTER};
+uint8_t ipdst_filter[IP_ADDR] = {NO_FILTER};
 uint16_t sport_filter= NO_FILTER;
 uint16_t dport_filter = NO_FILTER;
+bool filt_ipsrc = false;
+bool filt_ipdst = false;
 
 void handleSignal(int nsignal)
 {
@@ -140,19 +141,19 @@ int main(int argc, char **argv)
             break;
 
         case '1' :
-            if (sscanf(optarg, "%"SCNu8".%"SCNu8".%"SCNu8".%"SCNu8"", &(ipsrc_filter[0]), &(ipsrc_filter[1]), &(ipsrc_filter[2]), &(ipsrc_filter[3])) != IP_ALEN) {
+            if (sscanf(optarg, "%"SCNu8".%"SCNu8".%"SCNu8".%"SCNu8"", &(ipsrc_filter[0]), &(ipsrc_filter[1]), &(ipsrc_filter[2]), &(ipsrc_filter[3])) != IP_ADDR) {
                 printf("Error ipo_filtro. Ejecucion: %s /ruta/captura_pcap [-ipo IPO] [-ipd IPD] [-po PO] [-pd PD]: %d\n", argv[0], argc);
                 exit(ERROR);
             }
-
+            filt_ipsrc = true;
             break;
 
         case '2' :
-            if (sscanf(optarg, "%"SCNu8".%"SCNu8".%"SCNu8".%"SCNu8"", &(ipdst_filter[0]), &(ipdst_filter[1]), &(ipdst_filter[2]), &(ipdst_filter[3])) != IP_ALEN) {
+            if (sscanf(optarg, "%"SCNu8".%"SCNu8".%"SCNu8".%"SCNu8"", &(ipdst_filter[0]), &(ipdst_filter[1]), &(ipdst_filter[2]), &(ipdst_filter[3])) != IP_ADDR) {
                 printf("Error ipd_filtro. Ejecucion: %s /ruta/captura_pcap [-ipo IPO] [-ipd IPD] [-po PO] [-pd PD]: %d\n", argv[0], argc);
                 exit(ERROR);
             }
-
+            filt_ipdst = true;
             break;
 
         case '3' :
@@ -229,14 +230,15 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
 {
     (void)user;
     uint16_t eth_protocol, posicion;
-    uint8_t ip_protocol;
+    uint8_t ip_protocol, ihl;
+    bool end_packet = false;
 
     printf("Nuevo paquete capturado el %s\n", ctime((const time_t *) & (hdr->ts.tv_sec)));
     contador++;
     int i = 0;
 
     printf("Direccion ETH destino = ");
-    printf("%02X", pack[0]);
+    printf("%02X", *pack);
 
     for (i = 1; i < ETH_ALEN; i++) {
         printf("-%02X", pack[i]);
@@ -246,7 +248,7 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
     pack += ETH_ALEN;
 
     printf("Direccion ETH origen  = ");
-    printf("%02X", pack[0]);
+    printf("%02X", *pack);
 
     for (i = 1; i < ETH_ALEN; i++) {
         printf("-%02X", pack[i]);
@@ -260,61 +262,95 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
     printf("0x%04X", eth_protocol);
     printf("\n");
     if(eth_protocol != 0x0800){
-        printf("El protocolo no es el esperado, no se imprimirá la información de los siguientes niveles.\n");
+        printf("El protocolo no es el esperado, no se imprimirá la información de los siguientes niveles.\n\n\n");
         return;
     }
     pack+=ETH_TLEN;
     // IP
     printf("Version IP            = ");
-    printf("%"PRIu8"\n", pack[0]>>4);
+    printf("%"PRIu8"\n", *pack>>4);
     printf("Longitud de cabecera  = ");
-    printf("%"PRIu8"\n", pack[0]&0x0F);
+    ihl = *pack&0x0F;
+    printf("%"PRIu8"\n", ihl);
     pack+=IP_INIT;
     printf("Longitud total        = ");
-    printf("%"PRIu16"\n", pack[0]);
+    printf("%"PRIu16"\n", ntohs(*(uint16_t *)pack));
     pack+=IP_TLEN+IP_ID;
     printf("Posición              = ");
-    posicion = pack[0]&0x1FFF;
+    posicion = *pack&0x1FFF;
     printf("%"PRIu16"\n", posicion);
     pack+=IP_FLPOS;
     printf("Tiempo de vida        = ");
-    printf("%"PRIu8"\n", pack[0]);
+    printf("%"PRIu8"\n", *pack);
     pack+=IP_TTLIVE;
     printf("Protocolo             = ");
-    ip_protocol =  pack[0];
+    ip_protocol =  *pack;
     printf("%"PRIu8"\n", ip_protocol);
     pack+=IP_PROTOCOL+IP_CHECK_SUM;
     printf("Dirección IP origen   = ");
-    printf("%"PRIu32"\n", pack[0]);
-    pack+=IP_ADDR;
-    printf("Dirección IP destino  = ");
-    printf("%"PRIu32"\n", pack[0]);
-    if(posicion != 0){
+    printf("%"PRIu8"", *pack);
+    if(*pack!=*ipsrc_filter) end_packet = true;
+    for (i = 1; i < IP_ADDR; i++) {
+        printf(".%"PRIu8"", pack[i]);
+        if(pack[i]!=ipsrc_filter[i]) end_packet = true;
+    }
+    printf("\n");
+
+    if(end_packet && filt_ipsrc){
+        printf("\n\n");
         return;
     }
-    if(ip_protocol != 6 || ip_protocol != 17){
-        printf("El protocolo no es el esperado, no se imprimirá la información de los siguientes niveles.\n");
+    end_packet = false;
+    pack+=IP_ADDR;
+    printf("Dirección IP destino  = ");
+    printf("%"PRIu8"", *pack);
+    if(*pack!=*ipdst_filter && *ipdst_filter != 0) end_packet = true;
+    for (i = 1; i < IP_ADDR; i++) {
+        printf(".%"PRIu8"", pack[i]);
+        if(pack[i]!=ipdst_filter[i] && ipdst_filter[i] != 0) end_packet = true;
+    }
+    printf("\n");
+    if(end_packet && filt_ipdst){
+        printf("\n\n");
+        return;
+    }
+    pack+=IP_ADDR;
+    if(posicion != 0){
+        printf("\n\n");
+        return;
+    }
+    if(ip_protocol != 6 && ip_protocol != 17){
+        printf("El protocolo no es el esperado, no se imprimirá la información de los siguientes niveles.\n\n\n");
         return;
     }
     // Transporte
+    pack+= (ihl-5)<<2;
     printf("Puerto origen         = ");
-    printf("%"PRIu16"\n", pack[0]);
+    printf("%"PRIu16"\n", ntohs(*(uint16_t *)pack));
+    if(ntohs(*(uint16_t *)pack) != sport_filter && sport_filter != 0){
+        printf("\n\n");
+        return;
+    }
     pack+=L4_PORT;
     printf("Puerto destino        = ");
-    printf("%"PRIu16"\n", pack[0]);
+    printf("%"PRIu16"\n", ntohs(*(uint16_t *)pack));
+    if(ntohs(*(uint16_t *)pack) != dport_filter && dport_filter != 0){
+        printf("\n\n");
+        return;
+    }
     pack+=L4_PORT;
 
     switch (ip_protocol) {
         case 6:  // TCP
             pack+=TCP_SHAMT;
             printf("SYN                   = ");
-            printf("%"PRIu8"\n", pack[0]&0x02);
+            printf("%"PRIu8"\n", *pack&0x02);
             printf("FIN                   = ");
-            printf("%"PRIu8"\n", pack[0]&0x01);
+            printf("%"PRIu8"\n", *pack&0x01);
         break;
         case 17: // UDP
             printf("Longitud              = ");
-            printf("%"PRIu16"\n", pack[0]);
+            printf("%"PRIu16"\n", ntohs(*(uint16_t *)pack));
         break;
         default:
             fprintf(stderr, "Error en el nivel de transporte\n");
