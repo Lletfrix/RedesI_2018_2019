@@ -1,5 +1,8 @@
 Autores: Sergio Galán Martin y Rafael Sánchez Sánchez.
 
+En relación a los campos Posición y Longitud de cabecera, hemos imprimido primero el significado "real" de ese dato y luego el
+dato tal cual aparece en la cabecera.
+
 Captura desde Interfaz de Red     : Realizado - Al ejecutar el programa con el parámetro -i eth0 se captura desde eth0.
 Información de Nivel 2            : Realizado - Se muestran los campos ETH destino, ETH origen y protocolo.
 Información de Nivel 3 (General)  : Realizado - Se muestran correctamente y sólo los campos pedidos.

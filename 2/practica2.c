@@ -67,7 +67,6 @@ int main(int argc, char **argv)
     char errbuf[PCAP_ERRBUF_SIZE];
     int long_index = 0, retorno = 0;
     char opt;
-    (void) errbuf; //indicamos al compilador que no nos importa que errbuf no se utilice. Esta linea debe ser eliminada en la entrega final.
 
     if (signal(SIGINT, handleSignal) == SIG_ERR) {
         printf("Error: Fallo al capturar la senal SIGINT.\n");
@@ -172,9 +171,7 @@ int main(int argc, char **argv)
 
     //Simple comprobacion de la correcion de la lectura de parametros
     printf("Filtro:");
-    //if(ipsrc_filter[0]!=0)
     printf("ipsrc_filter:%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"\t", ipsrc_filter[0], ipsrc_filter[1], ipsrc_filter[2], ipsrc_filter[3]);
-    //if(ipdst_filter[0]!=0)
     printf("ipdst_filter:%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"\t", ipdst_filter[0], ipdst_filter[1], ipdst_filter[2], ipdst_filter[3]);
 
     if (sport_filter!= NO_FILTER) {
@@ -204,8 +201,6 @@ int main(int argc, char **argv)
     return OK;
 }
 
-
-
 void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t *pack)
 {
     (void)user;
@@ -213,7 +208,7 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
     uint8_t ip_protocol, ihl;
     bool end_packet = false;
 
-    printf("Nuevo paquete capturado el %s\n", ctime((const time_t *) & (hdr->ts.tv_sec)));
+    printf("%"PRIu64": Nuevo paquete capturado el %s\n",contador, ctime((const time_t *) & (hdr->ts.tv_sec)));
     contador++;
     int i = 0;
 
