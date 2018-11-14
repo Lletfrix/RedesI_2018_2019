@@ -1,1 +1,12 @@
 Autores: Sergio Galán Martin y Rafael Sánchez Sánchez.
+
+Captura desde Interfaz de Red     : Realizado - Al ejecutar el programa con el parámetro -i eth0 se captura desde eth0.
+Información de Nivel 2            : Realizado - Se muestran los campos ETH destino, ETH origen y protocolo.
+Información de Nivel 3 (General)  : Realizado - Se muestran correctamente y sólo los campos pedidos.
+Información de Nivel 3 (Opciones) : Realizado - Se avanza el puntero uint8_t *pack correctamente para saltar el campo opciones.
+Informacón de Nivel 4             : Realizado - Se muestran los campos correctos para ambos protocolos.
+Campo desplazamiento              : Realizado - Se muestra el valor del campo (bloques de 8 bytes) y el numero total de bytes. Se
+                                                tiene en cuenta para no mostrar el nivel 4 cuando no vale 0.
+Análisis de tráfico cruzado       : Realizado - Solo se muestran el nivel 3 de paquetes IPv4 y el nivel 4 de paquetes TCP o UDP.
+Filtro de paquetes                : Realizado - Funcionan los 4 filtros por separado y conjuntamente. Cuando se muestra por pantalla
+                                                un campo que no concuerde con el valor del filtro dejamos de analizar el paquete.
