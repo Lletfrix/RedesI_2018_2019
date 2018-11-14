@@ -1,25 +1,15 @@
 #ifndef PRACTICA2
 #define PRACTICA2
 
-void handle(int nsignal);
-
-void fa_nuevo_paquete(uint8_t *usuario, const struct pcap_pkthdr* cabecera, const uint8_t* paquete);
+/**
+ * Manejador de la señal SIGINT que termina la ejecución del programa.
+ */
+void handleSignal(int nsignal);
 
 /**
- * Checks if given string is a integer number.
- *
- * char *s: String to be checked.
+ * Función de callback de pcap_loop. Imprime los campos pedidos en el enunciado
+ * conforme procesa los paquetes.
  */
-bool aredigits(char *s);
-
-
-/**
- * Prints the content of the packet in 2 chars hex-format.
- *
- * uint32_t caplen: number of bytes of the packet's content.
- * uint8_t *pkt   : pointer to the packet.
- */
-void print_pkt_hex(const uint32_t caplen, const uint8_t *pkt);
-
+void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t *pack);
 
 #endif

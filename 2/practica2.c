@@ -51,16 +51,8 @@
 #define IP_CHECK_SUM 2
 #define L4_PORT 2
 #define TCP_SHAMT 9
-void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t *pack);
 
-typedef struct{
-    uint16_t uint16;
-    uint32_t uint32;
-    uint64_t uint64;
-} uint_t;
-
-void handleSignal(int nsignal);
-
+/* Variables globales */
 pcap_t *descr = NULL;
 uint64_t contador = 0;
 uint8_t ipsrc_filter[IP_ADDR] = {NO_FILTER};
@@ -70,23 +62,11 @@ uint16_t dport_filter = NO_FILTER;
 bool filt_ipsrc = false;
 bool filt_ipdst = false;
 
-void handleSignal(int nsignal)
-{
-    (void) nsignal; // indicamos al compilador que no nos importa que nsignal no se utilice
-
-    printf("Control C pulsado\n");
-    pcap_breakloop(descr);
-}
-
 int main(int argc, char **argv)
 {
-
-
     char errbuf[PCAP_ERRBUF_SIZE];
-
     int long_index = 0, retorno = 0;
     char opt;
-
     (void) errbuf; //indicamos al compilador que no nos importa que errbuf no se utilice. Esta linea debe ser eliminada en la entrega final.
 
     if (signal(SIGINT, handleSignal) == SIG_ERR) {
@@ -229,7 +209,7 @@ int main(int argc, char **argv)
 void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t *pack)
 {
     (void)user;
-    uint16_t eth_protocol, posicion;
+    uint16_t posicion, eth_protocol;
     uint8_t ip_protocol, ihl;
     bool end_packet = false;
 
@@ -237,26 +217,23 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
     contador++;
     int i = 0;
 
+    /* Nivel 2 */
     printf("Direccion ETH destino = ");
     printf("%02X", *pack);
-
     for (i = 1; i < ETH_ALEN; i++) {
         printf("-%02X", pack[i]);
     }
-
     printf("\n");
-    pack += ETH_ALEN;
 
+    pack += ETH_ALEN;
     printf("Direccion ETH origen  = ");
     printf("%02X", *pack);
-
     for (i = 1; i < ETH_ALEN; i++) {
         printf("-%02X", pack[i]);
     }
-
     printf("\n");
+
     pack+=ETH_ALEN;
-    // Ethernet
     eth_protocol = ntohs(*(uint16_t *)pack);
     printf("Protocolo             = ");
     printf("0x%04X", eth_protocol);
@@ -266,19 +243,20 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
         return;
     }
     pack+=ETH_TLEN;
-    // IP
+
+    /* Nivel 3 */
     printf("Version IP            = ");
-    printf("%"PRIu8"\n", *pack>>4);
+    printf("%"PRIu8"\n", (*pack)>>4);
     printf("Longitud de cabecera  = ");
     ihl = *pack&0x0F;
-    printf("%"PRIu8"\n", ihl);
+    printf("%"PRIu8" bytes (%"PRIu8")\n", 4*ihl, ihl);
     pack+=IP_INIT;
     printf("Longitud total        = ");
     printf("%"PRIu16"\n", ntohs(*(uint16_t *)pack));
     pack+=IP_TLEN+IP_ID;
     printf("Posición              = ");
-    posicion = *pack&0x1FFF;
-    printf("%"PRIu16"\n", posicion);
+    posicion = ntohs(*(uint16_t *) pack)&0x1FFF;
+    printf("%"PRIu8" bytes (%"PRIu16")\n", 8*posicion, posicion);
     pack+=IP_FLPOS;
     printf("Tiempo de vida        = ");
     printf("%"PRIu8"\n", *pack);
@@ -316,14 +294,14 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
     }
     pack+=IP_ADDR;
     if(posicion != 0){
-        printf("\n\n");
+        printf("El paquete IP leído no es el primer fragmento.\n\n");
         return;
     }
     if(ip_protocol != 6 && ip_protocol != 17){
         printf("El protocolo no es el esperado, no se imprimirá la información de los siguientes niveles.\n\n\n");
         return;
     }
-    // Transporte
+    /* Nivel 4 */
     pack+= (ihl-5)<<2;
     printf("Puerto origen         = ");
     printf("%"PRIu16"\n", ntohs(*(uint16_t *)pack));
@@ -356,4 +334,12 @@ void analizar_paquete(u_char *user,const struct pcap_pkthdr *hdr, const uint8_t 
             fprintf(stderr, "Error en el nivel de transporte\n");
     }
     printf("\n\n");
+}
+
+void handleSignal(int nsignal)
+{
+    (void) nsignal; // indicamos al compilador que no nos importa que nsignal no se utilice
+
+    printf("Control C pulsado\n");
+    pcap_breakloop(descr);
 }
