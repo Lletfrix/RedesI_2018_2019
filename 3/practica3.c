@@ -11,6 +11,8 @@ Compila con warning pues falta usar variables y modificar funciones
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "interface.h"
 #include "practica3.h"
 
@@ -36,9 +38,9 @@ int main(int argc, char **argv){
     uint16_t MTU;
     uint16_t datalink;
     uint16_t puerto_destino;
-    char data[IP_DATAGRAM_MAX];
+    char data[IP_DATAGRAM_MAX]={0};
     uint16_t pila_protocolos[CADENAS];
-
+    FILE *src_f = NULL;
 
     int long_index=0;
     char opt;
@@ -89,13 +91,21 @@ int main(int argc, char **argv){
 
                 if(strcmp(optarg,"stdin")==0) {
                     if (fgets(data, sizeof data, stdin)==NULL) {
-                              printf("Error leyendo desde stdin: %s %s %d.\n",errbuf,__FILE__,__LINE__);
+                        printf("Error leyendo desde stdin: %s %s %d.\n",errbuf,__FILE__,__LINE__);
                         return ERROR;
                     }
                     sprintf(fichero_pcap_destino,"%s%s","stdin",".pcap");
                 } else {
                     sprintf(fichero_pcap_destino,"%s%s",optarg,".pcap");
-                    //TODO Leer fichero en data [...]
+                    if(!src_f = fopen(optarg, rb)){
+                        printf("Error abriendo el fichero:%s %s %s %d.\n",optarg, errbuf,__FILE__,__LINE__);
+                        return ERROR;
+                    }
+                    fread(data, sizeof(char), IP_DATAGRAM_MAX-1, src_f);
+                    if(ferror(src_f)){
+                        printf("Error leyendo del fichero:%s %s %s %d.\n",optarg, errbuf,__FILE__,__LINE__);
+                        return ERROR;
+                    }
                 }
                 flag_file = 1;
                 break;
@@ -215,7 +225,7 @@ printf("Enviar(%"PRIu16") %s %d.\n",protocolo,__FILE__,__LINE__);
 }
 
 
-/***************************TODO Pila de protocolos a implementar************************************/
+/***************************Pila de protocolos a implementar************************************/
 
 
 /****************************************************************************************
@@ -232,16 +242,32 @@ printf("Enviar(%"PRIu16") %s %d.\n",protocolo,__FILE__,__LINE__);
 uint8_t moduloICMP(uint8_t* mensaje, uint32_t longitud, uint16_t* pila_protocolos, void *parametros){
     uint8_t segmento[ICMP_DATAGRAM_MAX]={0};
     uint8_t aux8;
-    uint32_t pos=0;
+    uint16_t aux16;
+    uint32_t pos=0, checksum;
     uint8_t protocolo_inferior=pila_protocolos[1];
     printf("modulo ICMP(%"PRIu16") %s %d.\n",protocolo_inferior,__FILE__,__LINE__);
 
     aux8=PING_TIPO;
     memcpy(segmento+pos,&aux8,sizeof(uint8_t));
     pos+=sizeof(uint8_t);
-//TODO rellenar el resto de campos de ICMP, incluyendo el checksum tras haber rellenado todo el segmento, incluyendo el mensaje
-// El campo de identificador se puede asociar al pid, y el de secuencia puede ponerse a 1.
-//[....]
+    aux8=0;
+    memcpy(segmento+pos,&aux8,sizeof(uint8_t));
+    pos+=sizeof(uint8_t);
+    checksum = pos;
+    pos+=sizeof(uint16_t);
+    aux8=1;
+    memcpy(segmento+pos,&aux8,sizeof(uint8_t));
+    pos+=sizeof(uint8_t);
+    aux16=htons((uint16_t) getpid()>>2);
+    memcpy(segmento+pos,&aux16,sizeof(uint16_t));
+    pos+=sizeof(uint16_t);
+    aux16=htons(1);
+    memcpy(segmento+pos,&aux16,sizeof(uint16_t));
+    pos+=sizeof(uint16_t);
+    memcpy(segmento+pos,mensaje,longitud * sizeof(uint8_t)); // XXX
+    pos+=longitud*sizeof(uint8_t);
+    aux16 = calcularChecksum(segmento, pos);
+    memcpy(segmento+checksum, &aux16, sizeof(uint16_t));
 
 //Se llama al protocolo definido de nivel inferior a traves de los punteros registrados en la tabla de protocolos registrados
     return protocolos_registrados[protocolo_inferior](segmento,longitud+pos,pila_protocolos,parametros);
@@ -274,16 +300,22 @@ uint8_t moduloUDP(uint8_t* mensaje, uint32_t longitud, uint16_t* pila_protocolos
 
     Parametros udpdatos=*((Parametros*)parametros);
     uint16_t puerto_destino=udpdatos.puerto_destino;
-
-//TODO
-//[...]
-//obtenerPuertoOrigen(...)
+    obtenerPuertoOrigen(&puerto_origen);
     aux16=htons(puerto_origen);
     memcpy(segmento+pos,&aux16,sizeof(uint16_t));
     pos+=sizeof(uint16_t);
+    aux16=htons(puerto_destino);
+    memcpy(segmento+pos,&aux16,sizeof(uint16_t));
+    pos+=sizeof(uint16_t);
+    aux16=htons(2*pos + longitud);
+    memcpy(segmento+pos,&aux16,sizeof(uint16_t));
+    pos+=sizeof(uint16_t);
+    aux16=0;
+    memcpy(segmento+pos,&aux16,sizeof(uint16_t));
+    pos+=sizeof(uint16_t);
+    memcpy(segmento+pos,mensaje,longitud * sizeof(uint8_t)); // XXX
+    pos+=longitud*sizeof(uint8_t);
 
-//TODO Completar el segmento [...]
-//[...]
 //Se llama al protocolo definido de nivel inferior a traves de los punteros registrados en la tabla de protocolos registrados
     return protocolos_registrados[protocolo_inferior](segmento,longitud+pos,pila_protocolos,parametros);
 }
@@ -377,8 +409,10 @@ printf("modulo ETH(fisica) %s %d.\n",__FILE__,__LINE__);
  ****************************************************************************************/
 
 uint8_t aplicarMascara(uint8_t* IP, uint8_t* mascara, uint8_t longitud, uint8_t* resultado){
-//TODO
-//[...]
+    uint8_t i;
+    if(longitud != 4 || !ip || !mascara || !resultado) return ERROR;
+    for(i=0; i<longitud;++i) resultado[i]=IP[i]&mascara[i];
+    return OK;
 }
 
 
