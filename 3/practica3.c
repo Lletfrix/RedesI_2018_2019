@@ -307,7 +307,7 @@ uint8_t moduloUDP(uint8_t* mensaje, uint32_t longitud, uint16_t* pila_protocolos
     aux16=htons(puerto_destino);
     memcpy(segmento+pos,&aux16,sizeof(uint16_t));
     pos+=sizeof(uint16_t);
-    aux16=htons(2*pos + longitud);
+    aux16=htons(2*pos + longitud); // 2*pos = 64 = tamaño de cabecera de UDP
     memcpy(segmento+pos,&aux16,sizeof(uint16_t));
     pos+=sizeof(uint16_t);
     aux16=0;
@@ -343,20 +343,42 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
     uint8_t protocolo_inferior=pila_protocolos[2];
     pila_protocolos++;
     uint8_t mascara[IP_ALEN],IP_rango_origen[IP_ALEN],IP_rango_destino[IP_ALEN];
+    uint8_t arp_target[IP_ALEN];
+    uint8_t mac_dest[ETH_ALEN], mac_src[ETH_ALEN];
 
     printf("modulo IP(%"PRIu16") %s %d.\n",protocolo_inferior,__FILE__,__LINE__);
 
     Parametros ipdatos=*((Parametros*)parametros);
     uint8_t* IP_destino=ipdatos.IP_destino;
-
+    //Parametros *param = parametros;
 //TODO
-//Llamar a solicitudARP(...) adecuadamente y usar ETH_destino de la estructura parametros
-//[...]
+    obtenerIPInterface(interface, IP_origen);
+    obetenerMascaraInterface(interface, mascara);
+    if(mismaSubred(IP_origen, IP_destino, mascara, IP_ALEN) == ERROR){
+        obtenerGateway(interface, arp_target);
+    }else{
+        arp_target = IP_destino; //XXX
+    }
+    solicitudARP(interface, arp_target, mac_dest);
+    obtenerMACdeInterface(interface, mac_src);
+    for (int i=0; i<ETH_ALEN; ++i) ((Parametros*) parametros)->ETH_destino[i] = mac_dest[i];
+
+    //Construcción de cabecera
+    aux8 = 0x45; // 0xip_ver|ihl
+    memcpy(segmento+pos,&aux8,sizeof(uint8_t));
+    pos+=IP_PROTO + IP_IHL;
+    aux8 = 0;
+    memcpy(segmento+pos,&aux8,sizeof(uint8_t));
+    pos+= IP_TSERV;
+    aux16=htons(longitud+0x05<<2);
+    memcpy(segmento+pos,&aux8,sizeof(uint8_t));
+    pos+=IP_TLEN;
+    //TODO: TERMINAR ESTO
+
 //TODO A implementar el datagrama y fragmentación, asi como control de tamano segun bit DF
 //[...]
 //llamada/s a protocolo de nivel inferior [...]
-
-
+    return protocolos_registrados[protocolo_inferior](segmento,longitud+pos,pila_protocolos,parametros);
 }
 
 
@@ -522,11 +544,10 @@ uint8_t registrarProtocolo(uint16_t protocolo, pf_notificacion handleModule, pf_
  ****************************************************************************************/
 
  uin8_t mismaSubred(uin8_t *ip1, uint8_t *ip2, uint8_t* mascara, uint8_t longitud){
-    int i;
-    for(i=0; i<longitud;++i){
-      if(ip1[i]&mascara[i]!=ip2[i]&mascara[i]){
-          return ERROR;
-      }
+    for(int i=0; i<longitud;++i){
+        if(ip1[i]&mascara[i]!=ip2[i]&mascara[i]){
+            return ERROR;
+        }
     }
     return OK;
  }
