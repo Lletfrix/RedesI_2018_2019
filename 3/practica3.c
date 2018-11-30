@@ -511,3 +511,33 @@ uint8_t registrarProtocolo(uint16_t protocolo, pf_notificacion handleModule, pf_
         protocolos_registrados[protocolo]=handleModule;
     return OK;
 }
+
+/****************************************************************************************
+ * Nombre: mismaSubred                                                                  *
+ * Descripcion: Detecta si dos ips están en la misma subred o no                        *
+ * Argumentos:                                                                          *
+ *  -ip1 Primera ip                                                                     *
+ *  -ip2 Segunda ip                                                                     *
+ * Retorno: OK/ERROR                                                                  *
+ ****************************************************************************************/
+
+ uin8_t mismaSubred(uin8_t *ip1, uint8_t *ip2, uint8_t* mascara, uint8_t longitud){
+    uint8_t ipm1, ipm2;
+    int i;
+    ipm1 = calloc(longitud, sizeof(uint8_t));
+    ipm2 = calloc(longitud, sizeof(uint8_t));
+    //TODO Control de errores
+    aplicarMascara(ip1, mascara, longitud, ipm1);
+    aplicarMascara(ip2, mascara, longitud, ipm2);
+    for(i = 0; i < longitud; ++i){
+        if(ipm1[i] != imp2[i]){
+            return false;
+        }
+    }
+    for(i=0; i<longitud;++i){
+      if(ip1[i]&mascara[i]!=ip2[i]&mascara[i]){
+          return ERROR;
+      }
+    }
+    return OK;
+ }
