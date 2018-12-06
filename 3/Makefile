@@ -29,9 +29,9 @@ DEPS = $(shell echo $(SOURCES) | sed -e 's:\.c[p]*:\.d:g')
 ZIP_NAME=practica$(notdir $(CURDIR))_1302_P06
 DIST_PATH=./*
 
-all:	practica$(notdir $(CURDIR))
+all:	practica3
 
-practica$(notdir $(CURDIR)):	practica$(notdir $(CURDIR)).o interface.o
+practica3:	practica3.o interface.o
 
 # receta para hacer un .d (dependencias automaticas de tipo .h para tus .o)
 %.d : %.c

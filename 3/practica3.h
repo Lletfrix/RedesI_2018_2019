@@ -43,7 +43,6 @@
 #define IP_PROTO 4        // Identificador protocolo IP
 #define IP_IHL 4 //Header length
 #define IP_TSERV 8 //Type os service
-#define IP_TLEN 16
 
 #define UDP_HLEN 8            // Tamano de cabecera UDP
 #define UDP_SEG_MAX 65507    // Tamano maximo datos segmento UDP
@@ -99,5 +98,6 @@ void handleSignal(int nsignal);
 /***************************Funciones auxiliares a implementar*********************************/
 uint8_t aplicarMascara(uint8_t* IP, uint8_t* mascara, uint8_t longitud, uint8_t* resultado);
 
+uint8_t mismaSubred(uint8_t *ip1, uint8_t *ip2, uint8_t* mascara, uint8_t longitud);
 
 #endif
