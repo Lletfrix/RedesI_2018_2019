@@ -97,6 +97,7 @@ int main(int argc, char **argv){
                         return ERROR;
                     }
                     sprintf(fichero_pcap_destino,"%s%s","stdin",".pcap");
+                    bytes = strlen(data);
                 } else {
                     sprintf(fichero_pcap_destino,"%s%s",optarg,".pcap");
                     if(!(src_f = fopen(optarg, "rb"))){
@@ -142,6 +143,7 @@ int main(int argc, char **argv){
 
     if (flag_file == 0) {
         sprintf(data,"%s","Payload "); //Deben ser pares!
+        bytes = strlen(data);
         sprintf(fichero_pcap_destino,"%s%s","debugging",".pcap");
     }
 
@@ -186,22 +188,11 @@ int main(int argc, char **argv){
     //Rellenamos los parametros necesario para enviar el paquete a su destinatario y proceso
     Parametros parametros_udp; memcpy(parametros_udp.IP_destino,IP_destino_red,IP_ALEN); parametros_udp.bit_DF=flag_dontfrag; parametros_udp.puerto_destino=puerto_destino;
     //Enviamos
-    //TODO Comprobar por que no se manda UDP
-    printf("Voy a enviar");
-    if(strcmp(optarg,"stdin")==0){
-		if(enviar((uint8_t*)data,strlen(data),pila_protocolos,&parametros_udp)==ERROR ){
-			printf("Error: enviar(): %s %s %d.\n",errbuf,__FILE__,__LINE__);
-			return ERROR;
-		}
-		else    cont++;
+	if(enviar((uint8_t*)data,bytes,pila_protocolos,&parametros_udp)==ERROR ){
+		printf("Error: enviar(): %s %s %d.\n",errbuf,__FILE__,__LINE__);
+		return ERROR;
 	}
-	else{
-		if(enviar((uint8_t*)data,bytes,pila_protocolos,&parametros_udp)==ERROR ){
-			printf("Error: enviar(): %s %s %d.\n",errbuf,__FILE__,__LINE__);
-			return ERROR;
-		}
-		else    cont++;
-	}
+	else    cont++;
 
     printf("Enviado mensaje %"PRIu64", almacenado en %s\n\n\n", cont,fichero_pcap_destino);
 
@@ -374,16 +365,16 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
     }
     solicitudARP(interface, arp_target, mac_dest);
     //obtenerMACdeInterface(interface, mac_src); Creo que esto no hace falta XXX
+    obtenerMTUInterface(interface, &aux16);
+    packsize = (aux16-20)&(0xFFF8);
     for (int i=0; i<ETH_ALEN; ++i) ((Parametros*) parametros)->ETH_destino[i] = mac_dest[i];
-	if(longitud > 1480){
+	if(longitud > packsize){
 		if(((Parametros*) parametros)->bit_DF == 1){
 			fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU");
 			return ERROR;
 		}
-		obtenerMTUInterface(interface, &aux16);
-		packsize = (aux16>>3)<<3;
 		aux32 = longitud;
-		for(;aux32 > packsize;aux32 -= packsize){
+		for(;aux32 > packsize;aux32 -= packsize, pos=0, ++i){
 			//Construcción de cabecera
 			aux8 = 0x45; // 0xip_ver|ihl
 			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
@@ -422,13 +413,11 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
 
 			memcpy(datagrama+pos, segmento+(packsize*i), packsize);//TODO Ver si esto está bien
 			//TODO: Ver como mandar varios paquetes
-			if(protocolos_registrados[protocolo_inferior](datagrama,longitud+pos,pila_protocolos,parametros) == ERROR){
+			if(protocolos_registrados[protocolo_inferior](datagrama,packsize+pos,pila_protocolos,parametros) == ERROR){
 				fprintf(stderr, "Fallo al crear algún fragmento");
 				return ERROR;
 			}
-			i++;
 		}
-		//Construcción de cabecera
 			aux8 = 0x45; // 0xip_ver|ihl
 			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
 			pos+=1;
@@ -465,10 +454,9 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
 
 			memcpy(datagrama+pos, segmento+(packsize*i), packsize);//TODO Ver si esto está bien
 			//TODO: Ver como mandar varios paquetes
-			return protocolos_registrados[protocolo_inferior](datagrama,longitud+pos,pila_protocolos,parametros);		
-		
-	}
-	else{
+			return protocolos_registrados[protocolo_inferior](datagrama,longitud-i*packsize+pos,pila_protocolos,parametros);
+
+	}else{
 		//Construcción de cabecera
 		aux8 = 0x45; // 0xip_ver|ihl
 		memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
