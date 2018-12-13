@@ -445,11 +445,12 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
     printf("modulo ETH(fisica) %s %d.\n",__FILE__,__LINE__);
 
 //Control de tamano
-    if(longitud > obtenerMTUInterface(interface)){
+    obtenerMTUInterface(interface, &aux16);
+    if(longitud > aux16){
         fprintf(stderr,"El tamaño del paquete es mayor que el tamaño de la MTU. %s %d\n", __FILE__,__LINE__);
         return ERROR;
     }
-    
+
 //Cabecera del modulo
     memcpy(trama+pos, eth_destino, ETH_ALEN*sizeof(uint8_t));
     pos+=ETH_ALEN;
