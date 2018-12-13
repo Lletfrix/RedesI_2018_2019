@@ -23,7 +23,7 @@ pcap_dumper_t * pdumper;//y salida a pcap
 uint64_t cont=0;    //Contador numero de mensajes enviados
 char interface[10];    //Interface donde transmitir por ejemplo "eth0"
 uint16_t ID=1;        //Identificador IP
-
+char flag_mostrar = 0;
 
 void handleSignal(int nsignal){
     printf("Control C pulsado (%"PRIu64")\n", cont);
@@ -46,7 +46,7 @@ int main(int argc, char **argv){
 
     int long_index=0;
     char opt;
-    char flag_iface = 0, flag_ip = 0, flag_port = 0, flag_file = 0, flag_dontfrag = 0, flag_mostrar = 0;
+    char flag_iface = 0, flag_ip = 0, flag_port = 0, flag_file = 0, flag_dontfrag = 0;
 
     static struct option options[] = {
         {"if",required_argument,0,'1'},
@@ -368,7 +368,7 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
     obtenerMTUInterface(interface, &aux16);
     packsize = (aux16-20)&(0xFFF8);
     for (int i=0; i<ETH_ALEN; ++i) ((Parametros*) parametros)->ETH_destino[i] = mac_dest[i];
-	if(longitud > packsize){
+	if(longitud > packsize){ //Fragmentación
 		if(((Parametros*) parametros)->bit_DF == 1){
 			fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU");
 			return ERROR;
@@ -380,7 +380,7 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
 			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
 			pos+=1;
 			aux8 = 0;
-			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
+			memcpy(datagrama+pos,&aux8,sizeof(uint8_t)); //Tipo de servicio
 			pos+= 1;
 			aux16=htons(packsize+(0x05<<2));
 			memcpy(datagrama+pos,&aux16,sizeof(uint16_t));
@@ -543,6 +543,10 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
     if(PCAP_ERROR == pcap_inject(descr, trama, ETH_HLEN+longitud)){
         fprintf(stderr, "Injecting went wrong.\n");
         return ERROR;
+    }
+
+    if(flag_mostrar){
+        mostrarHex(trama, ETH_HLEN+longitud);
     }
 //TODO
 //Almacenamos la salida por cuestiones de debugging [...]
