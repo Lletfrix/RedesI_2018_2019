@@ -266,7 +266,7 @@ uint8_t moduloICMP(uint8_t* mensaje, uint32_t longitud, uint16_t* pila_protocolo
     aux16=htons(1);
     memcpy(segmento+pos,&aux16,sizeof(uint16_t));
     pos+=sizeof(uint16_t);
-    memcpy(segmento+pos,mensaje,longitud * sizeof(uint8_t)); // XXX
+    memcpy(segmento+pos,mensaje,longitud * sizeof(uint8_t));
     pos+=longitud;
     calcularChecksum(segmento, pos, sumacontrol);
     memcpy(segmento+checksum, sumacontrol, sizeof(uint16_t));
@@ -315,7 +315,7 @@ uint8_t moduloUDP(uint8_t* mensaje, uint32_t longitud, uint16_t* pila_protocolos
     aux16=0;
     memcpy(segmento+pos,&aux16,sizeof(uint16_t));
     pos+=sizeof(uint16_t);
-    memcpy(segmento+pos,mensaje,longitud * sizeof(uint8_t)); // XXX
+    memcpy(segmento+pos,mensaje,longitud * sizeof(uint8_t));
     pos+=longitud;
 
 //Se llama al protocolo definido de nivel inferior a traves de los punteros registrados en la tabla de protocolos registrados
@@ -364,12 +364,11 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
         }
     }
     solicitudARP(interface, arp_target, mac_dest);
-    //obtenerMACdeInterface(interface, mac_src); Creo que esto no hace falta XXX
     obtenerMTUInterface(interface, &aux16);
     packsize = (aux16-20)&(0xFFF8);
     for (int i=0; i<ETH_ALEN; ++i) ((Parametros*) parametros)->ETH_destino[i] = mac_dest[i];
     if(longitud  > packsize && ((Parametros*) parametros)->bit_DF == 1){
-        fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU");
+        fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU. %s %d",__FILE__,__LINE__);
         return ERROR;
     }
     n_frags = ceil(longitud/(double)packsize);
@@ -433,9 +432,7 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
 ****************************************************************************************/
 
 uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocolos,void *parametros){
-//TODO
-//[....]
-//[...] Variables del modulo
+//Variables del modulo
     struct timespec hora;
     uint8_t eth_origen[ETH_ALEN];
     uint8_t trama[ETH_FRAME_MAX]={0};
@@ -447,11 +444,13 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
 
     printf("modulo ETH(fisica) %s %d.\n",__FILE__,__LINE__);
 
-//TODO
-//[...] Control de tamano
-
-//TODO
-//[...] Cabecera del modulo
+//Control de tamano
+    if(longitud > obtenerMTUInterface(interface)){
+        fprintf(stderr,"El tamaño del paquete es mayor que el tamaño de la MTU. %s %d\n", __FILE__,__LINE__);
+        return ERROR;
+    }
+    
+//Cabecera del modulo
     memcpy(trama+pos, eth_destino, ETH_ALEN*sizeof(uint8_t));
     pos+=ETH_ALEN;
     memcpy(trama+pos, eth_origen, ETH_ALEN*sizeof(uint8_t));
@@ -460,8 +459,8 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
     memcpy(trama+pos, &aux16, sizeof(uint16_t));
     pos+=ETH_TLEN;
     memcpy(trama+pos, datagrama, longitud);
-//TODO
-//Enviar a capa fisica [...]
+
+//Enviar a capa fisica
 
     if(PCAP_ERROR == pcap_inject(descr, trama, ETH_HLEN+longitud)){
         fprintf(stderr, "Injecting went wrong.\n");
@@ -471,8 +470,8 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
     if(flag_mostrar){
         mostrarHex(trama, ETH_HLEN+longitud);
     }
-//TODO
-//Almacenamos la salida por cuestiones de debugging [...]
+
+//Almacenamos la salida por cuestiones de debugging
     clock_gettime(CLOCK_REALTIME, &hora);
     struct pcap_pkthdr header;
     header.ts.tv_sec = hora.tv_sec;
@@ -480,6 +479,7 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
     header.caplen = ETH_HLEN+longitud;
     header.len = ETH_HLEN+longitud;
     pcap_dump((uint8_t *)pdumper,&header,trama);
+
     return OK;
 }
 

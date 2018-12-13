@@ -1,1 +1,17 @@
 Autores: Sergio Galán Martin y Rafael Sánchez Sánchez.
+
+ICMP y echo/ping dentro de red local         : Realizado - Manda el paquete y recibe el retorno correctamente.
+
+ICMP y echo/ping en un equipo no adyacente   : Realizado - Se envían al router y se recibe el retorno ejecutando la petición ARP correspondiente.
+
+Formación correcta de un paquete UDP en LAN  : Realizado - Todos los campos se rellenan correctamente.
+
+Envío y recepción de un paquete UDP no en LAN: Realizado - Utiliza la IP destino del equipo y ejecuta las peticiones ARP pertinentes.
+
+Envio y recepción de UDP fragmentados        : Realizado - Se comprueba la MTU, se envían todos los paquetes, y todos los campos de la cabecera IP son correctos.
+
+Implementación bit DF                        : Realizado - Se envía el bit y se comprueba la MTU. No envía el paquete si su longitud es mayor que la MTU.
+
+Lectura de UDP                               : Realizado - El tamaño de lectura es correcto, se lee con fread de forma que ya se abre en modo binario.
+
+Impresion de tramas                          : Realizado - Al enviar una trama se imprime por pantalla usando la función mostrarHex
