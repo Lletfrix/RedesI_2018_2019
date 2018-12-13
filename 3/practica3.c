@@ -363,12 +363,15 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
             arp_target[i]=IP_destino[i];
         }
     }
-    solicitudARP(interface, arp_target, mac_dest);
+    if(ERROR == solicitudARP(interface, arp_target, mac_dest)){
+        fprintf(stderr, "Se ha intentado autoenviar un paquete. %s %d\n",__FILE__,__LINE__);
+        return ERROR;
+    }
     obtenerMTUInterface(interface, &aux16);
     packsize = (aux16-20)&(0xFFF8);
     for (int i=0; i<ETH_ALEN; ++i) ((Parametros*) parametros)->ETH_destino[i] = mac_dest[i];
     if(longitud  > packsize && ((Parametros*) parametros)->bit_DF == 1){
-        fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU. %s %d",__FILE__,__LINE__);
+        fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU. %s %d\n",__FILE__,__LINE__);
         return ERROR;
     }
     n_frags = ceil(longitud/(double)packsize);
@@ -376,7 +379,7 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
         offset = (packsize*enviados)>>3;
         if(enviados == n_frags-1){ //Último fragmento
             tlen = longitud - enviados*packsize + 20;
-            if(longitud < packsize)//No fragmentado (Único fragmento)
+            if(((Parametros*) parametros)->bit_DF == 1)//No fragmentar
                 position = htons(0x4000 | offset);
             else
                 position = htons(offset);

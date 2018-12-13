@@ -1,5 +1,7 @@
 Autores: Sergio Galán Martin y Rafael Sánchez Sánchez.
 
+Nota: En la práctica se ha optado por evitar el autoenvio de paquetes a la IP propia.
+
 ICMP y echo/ping dentro de red local         : Realizado - Manda el paquete y recibe el retorno correctamente.
 
 ICMP y echo/ping en un equipo no adyacente   : Realizado - Se envían al router y se recibe el retorno ejecutando la petición ARP correspondiente.
