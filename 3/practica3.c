@@ -336,19 +336,19 @@ uint8_t moduloUDP(uint8_t* mensaje, uint32_t longitud, uint16_t* pila_protocolos
 
 uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos, void *parametros){
     uint8_t datagrama[IP_DATAGRAM_MAX]={0};
-    int i = 0;
-    uint32_t aux32;
-    uint16_t aux16, packsize;
-    uint8_t aux8, sumacontrol[2];
-    uint32_t pos=0,pos_control=0;
+    int enviados;
+    uint16_t aux16, packsize, tlen, position, offset;
+    uint8_t aux8, sumacontrol[2], retorno;
+    uint32_t pos=0,pos_control=0, n_frags;
     uint8_t IP_origen[IP_ALEN];
     uint8_t protocolo_superior=pila_protocolos[0];
     uint8_t protocolo_inferior=pila_protocolos[2];
     pila_protocolos++;
-    uint8_t mascara[IP_ALEN],IP_rango_origen[IP_ALEN],IP_rango_destino[IP_ALEN];
+    uint8_t mascara[IP_ALEN];
     uint8_t arp_target[IP_ALEN];
     uint8_t mac_dest[ETH_ALEN] /*mac_src[ETH_ALEN]*/;
-
+    uint8_t *p;
+    static uint16_t identificacion = 0;
     printf("modulo IP(%"PRIu16") %s %d.\n",protocolo_inferior,__FILE__,__LINE__);
 
     Parametros ipdatos=*((Parametros*)parametros);
@@ -368,146 +368,69 @@ uint8_t moduloIP(uint8_t* segmento, uint32_t longitud, uint16_t* pila_protocolos
     obtenerMTUInterface(interface, &aux16);
     packsize = (aux16-20)&(0xFFF8);
     for (int i=0; i<ETH_ALEN; ++i) ((Parametros*) parametros)->ETH_destino[i] = mac_dest[i];
-	if(longitud > packsize){ //Fragmentación
-		if(((Parametros*) parametros)->bit_DF == 1){
-			fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU");
-			return ERROR;
-		}
-		aux32 = longitud;
-		for(;aux32 > packsize;aux32 -= packsize, pos=0, ++i){
-			//Construcción de cabecera
-			aux8 = 0x45; // 0xip_ver|ihl
-			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
-			pos+=1;
-			aux8 = 0;
-			memcpy(datagrama+pos,&aux8,sizeof(uint8_t)); //Tipo de servicio
-			pos+= 1;
-			aux16=htons(packsize+(0x05<<2));
-			memcpy(datagrama+pos,&aux16,sizeof(uint16_t));
-			pos+=2;
-			//TODO: Identificador distinto
-			aux16 = 0;
-			memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-			pos+=2;
-			aux16 = htons(0x2000|((packsize*i)>>3));// 001X XXXX // 001 XXXXX flags|posicion Comprobar si esto está bien
-			memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-			pos+=2;
-			aux8 = 0x40; // TTL 64
-			memcpy(datagrama+pos, &aux8, sizeof(uint8_t));
-			pos+=1;
-			memcpy(datagrama+pos, &protocolo_superior, sizeof(uint8_t));
-			pos+=1;
-			aux16 = 0;
-			memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-			pos_control = pos;
-			pos+=2;
-			//aux32 = htonl((IP_origen[0]<<24)|(IP_origen[1]<<16)|(IP_origen[2]<<8)|(IP_origen[3]));
-			memcpy(datagrama+pos, IP_origen, IP_ALEN*sizeof(uint32_t));
-			pos+=4;
-			//aux32 = htonl((IP_destino[0]<<24)|(IP_destino[1]<<16)|(IP_destino[2]<<8)|(IP_destino[3]));
-			memcpy(datagrama+pos, IP_destino, IP_ALEN*sizeof(uint32_t));
-			pos+=4;
-			calcularChecksum(datagrama, pos, sumacontrol);
-			memcpy(datagrama+pos_control, sumacontrol, sizeof(uint16_t));
-
-
-			memcpy(datagrama+pos, segmento+(packsize*i), packsize);//TODO Ver si esto está bien
-			//TODO: Ver como mandar varios paquetes
-			if(protocolos_registrados[protocolo_inferior](datagrama,packsize+pos,pila_protocolos,parametros) == ERROR){
-				fprintf(stderr, "Fallo al crear algún fragmento");
-				return ERROR;
-			}
-		}
-			aux8 = 0x45; // 0xip_ver|ihl
-			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
-			pos+=1;
-			aux8 = 0;
-			memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
-			pos+= 1;
-			aux16=htons(longitud-(packsize*i)+(0x05<<2));
-			memcpy(datagrama+pos,&aux16,sizeof(uint16_t));
-			pos+=2;
-			//TODO: Identificador distinto
-			aux16 = 0;
-			memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-			pos+=2;
-			aux16 = htons(0x0000|(longitud-((packsize*i)>>3)));// 000X XXXX // 000 XXXXX flags|posicion Comprobar si esto está bien
-			memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-			pos+=2;
-			aux8 = 0x40; // TTL 64
-			memcpy(datagrama+pos, &aux8, sizeof(uint8_t));
-			pos+=1;
-			memcpy(datagrama+pos, &protocolo_superior, sizeof(uint8_t));
-			pos+=1;
-			aux16 = 0;
-			memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-			pos_control = pos;
-			pos+=2;
-			//aux32 = htonl((IP_origen[0]<<24)|(IP_origen[1]<<16)|(IP_origen[2]<<8)|(IP_origen[3]));
-			memcpy(datagrama+pos, IP_origen, IP_ALEN*sizeof(uint32_t));
-			pos+=4;
-			//aux32 = htonl((IP_destino[0]<<24)|(IP_destino[1]<<16)|(IP_destino[2]<<8)|(IP_destino[3]));
-			memcpy(datagrama+pos, IP_destino, IP_ALEN*sizeof(uint32_t));
-			pos+=4;
-			calcularChecksum(datagrama, pos, sumacontrol);
-			memcpy(datagrama+pos_control, sumacontrol, sizeof(uint16_t));
-
-			memcpy(datagrama+pos, segmento+(packsize*i), packsize);//TODO Ver si esto está bien
-			//TODO: Ver como mandar varios paquetes
-			return protocolos_registrados[protocolo_inferior](datagrama,longitud-i*packsize+pos,pila_protocolos,parametros);
-
-	}else{
-		//Construcción de cabecera
-		aux8 = 0x45; // 0xip_ver|ihl
-		memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
-		pos+=1;
-		aux8 = 0;
-		memcpy(datagrama+pos,&aux8,sizeof(uint8_t));
-		pos+= 1;
-		aux16=htons(longitud+(0x05<<2));
-		memcpy(datagrama+pos,&aux16,sizeof(uint16_t));
-		pos+=2;
-		aux16 = 0;
-		memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-		pos+=2;
-		aux16 = htons(0x4000);// 0100 0000 // 010 00000 flags|posicion
-		memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-		pos+=2;
-		aux8 = 0x40; // TTL 64
-		memcpy(datagrama+pos, &aux8, sizeof(uint8_t));
-		pos+=1;
-		memcpy(datagrama+pos, &protocolo_superior, sizeof(uint8_t));
-		pos+=1;
-		aux16 = 0;
-		memcpy(datagrama+pos, &aux16, sizeof(uint16_t));
-		pos_control = pos;
-		pos+=2;
-		//aux32 = htonl((IP_origen[0]<<24)|(IP_origen[1]<<16)|(IP_origen[2]<<8)|(IP_origen[3]));
-		memcpy(datagrama+pos, IP_origen, IP_ALEN*sizeof(uint32_t));
-		pos+=4;
-		//aux32 = htonl((IP_destino[0]<<24)|(IP_destino[1]<<16)|(IP_destino[2]<<8)|(IP_destino[3]));
-		memcpy(datagrama+pos, IP_destino, IP_ALEN*sizeof(uint32_t));
-		pos+=4;
-		calcularChecksum(datagrama, pos, sumacontrol);
-		memcpy(datagrama+pos_control, sumacontrol, sizeof(uint16_t));
-
-		memcpy(datagrama+pos, segmento, longitud);
-		return protocolos_registrados[protocolo_inferior](datagrama,longitud+pos,pila_protocolos,parametros);
-	}
-	return ERROR;
+    if(longitud  > packsize && ((Parametros*) parametros)->bit_DF == 1){
+        fprintf(stderr, "Fragmentación no permitida y tamaño de datos > MTU");
+        return ERROR;
+    }
+    n_frags = ceil(longitud/(double)packsize);
+    for(p = segmento, enviados = 0; enviados < n_frags; enviados++, p+=packsize, pos=0){
+        offset = (packsize*enviados)>>3;
+        if(enviados == n_frags-1){ //Último fragmento
+            tlen = longitud - enviados*packsize + 20;
+            if(longitud < packsize)//No fragmentado (Único fragmento)
+                position = htons(0x4000 | offset);
+            else
+                position = htons(offset);
+        }else{ //Fragmentos menos el ultimo
+            tlen = packsize + 20;
+            position = htons(0x2000 | offset);
+        }
+        aux8 = 0x45;
+        memcpy(datagrama+pos, &aux8, 1);               //ipver_ihl
+        pos+=1;
+        aux8 = 0;
+        memcpy(datagrama+pos, &aux8, 1);               //tos
+        pos+=1;
+        aux16=htons(tlen);
+        memcpy(datagrama+pos, &aux16, 2);               //longitud total
+        pos+=2;
+        aux16 = htons(identificacion);
+        memcpy(datagrama+pos, &aux16, 2);              //identificacion
+        pos+=2;
+        memcpy(datagrama+pos, &position, 2);           //posicion
+        pos+=2;
+        aux8=64;
+        memcpy(datagrama+pos, &aux8, 1);               //TTS
+        pos+=1;
+        memcpy(datagrama+pos, &protocolo_superior, 1); //protocolo
+        pos+=1;
+        aux16 = 0;
+        memcpy(datagrama+pos, &aux16, 2);              //checksum placeholder
+        pos_control = pos;
+        pos+=2;
+        memcpy(datagrama+pos, IP_origen, IP_ALEN);     //ip origen
+        pos+=4;
+        memcpy(datagrama+pos, IP_destino, IP_ALEN);    //ip destino
+        pos+=4;
+        calcularChecksum(datagrama, pos, sumacontrol);
+        memcpy(datagrama+pos_control, sumacontrol, 2); //checksum
+        memcpy(datagrama+pos, p, tlen-20); //Segment
+        retorno = protocolos_registrados[protocolo_inferior](datagrama,tlen,pila_protocolos,parametros);
+    }
+    identificacion++;
+    return retorno;
 }
-
 
 /****************************************************************************************
  * Nombre: moduloETH                                                                    *
  * Descripcion: Esta funcion implementa el modulo de envio Ethernet                     *
  * Argumentos:                                                                          *
- *  -datagrama: datagrama a enviar                                                      *
+*  -datagrama: datagrama a enviar                                                      *
  *  -longitud: bytes que componen el datagrama                                          *
  *  -pila_protocolos: conjunto de protocolos a seguir                                   *
  *  -parametros: Parametros necesario para el envio este protocolo                      *
  * Retorno: OK/ERROR                                                                    *
- ****************************************************************************************/
+****************************************************************************************/
 
 uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocolos,void *parametros){
 //TODO
@@ -553,7 +476,7 @@ uint8_t moduloETH(uint8_t* datagrama, uint32_t longitud, uint16_t* pila_protocol
     clock_gettime(CLOCK_REALTIME, &hora);
     struct pcap_pkthdr header;
     header.ts.tv_sec = hora.tv_sec;
-    header.ts.tv_usec = hora.tv_nsec*1000;
+    header.ts.tv_usec = (unsigned long)hora.tv_nsec*1000;
     header.caplen = ETH_HLEN+longitud;
     header.len = ETH_HLEN+longitud;
     pcap_dump((uint8_t *)pdumper,&header,trama);
